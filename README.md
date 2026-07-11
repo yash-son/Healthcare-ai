@@ -1,1 +1,2 @@
 # Healthcare-ai
+This project is an AI-powered diagnostic and clinic-locator application. Users describe their symptoms in plain language, which are then parsed and mapped onto a machine learning model to predict their disease. The app caches metadata using a local SQLite database, retrieves nearby pharmacies and clinics using real-time geolocation and OpenStreetMap data, and provides interactive Gemini-based Q&A.
