@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>✧AI Healthcare Assistant</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <script>
+    // Tailwind custom palette tuned to a light brown / beige theme (B1-A)
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brown: {
+              50: '#faf5ef',
+              100: '#f5ecdf',
+              300: '#cdb89a',
+              500: '#a67c52',
+              600: '#8f5f38',
+              700: '#6f3f22'
+            },
+            mint: '#dff7ef',
+            ochre: { 400: '#f1c46b', 500: '#e0ac39' }
+          },
+          animation: {
+            float: 'float 6s ease-in-out infinite',
+            fadeInUp: 'fadeInUp .45s ease forwards',
+            pop: 'pop .15s ease'
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' }
+            },
+            fadeInUp: {
+              '0%': { opacity: 0, transform: 'translateY(8px)' },
+              '100%': { opacity: 1, transform: 'translateY(0)' }
+            },
+            pop: {
+              '0%': { transform: 'scale(1)' },
+              '50%': { transform: 'scale(0.98)' },
+              '100%': { transform: 'scale(1)' }
+            }
+          },
+          backdropBlur: {
+            xs: '2px'
+          }
+        }
+      },
+      plugins: []
+    }
+  </script>
+
+  <style>
+    body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    .blob {
+      position: absolute; border-radius: 48%; filter: blur(40px);
+      opacity: 0.45; transform: translate3d(0,0,0); pointer-events: none;
+    }
+    .typing-dots span {
+      display:inline-block; width:6px; height:6px; margin:0 2px; background: currentColor;
+      border-radius:50%; opacity:0.3; transform: translateY(0); animation: blink 1s infinite;
+    }
+    .typing-dots span:nth-child(2){ animation-delay:0.15s }
+    .typing-dots span:nth-child(3){ animation-delay:0.3s }
+    @keyframes blink {
+      0% { opacity:0.3; transform: translateY(0); }
+      50% { opacity:1; transform: translateY(-4px); }
+      100% { opacity:0.3; transform: translateY(0); }
+    }
+    .card-appear { animation: fadeInUp .38s ease both; }
+    .glass { background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  </style>
+</head>
+<body class="min-h-screen relative bg-gradient-to-br from-brown-50 via-brown-100 to-mint font-sans text-gray-800">
+
+  <!-- decorative blobs -->
+  <div class="blob bg-brown-100 w-72 h-72 left-10 top-8 animate-float" style="opacity:0.65"></div>
+  <div class="blob bg-ochre-400 w-56 h-56 right-10 top-28 animate-float" style="opacity:0.32"></div>
+  <div class="blob bg-mint w-80 h-80 left-1/3 bottom-10 animate-float" style="opacity:0.22"></div>
+
+  <div class="relative z-10 max-w-7xl mx-auto px-6 py-20">
+    <div class="flex flex-col lg:flex-row items-center gap-10">
+
+      <!-- LEFT: Welcome, Tip, Mood -->
+      <div class="lg:w-1/2 w-full space-y-6">
+        <div class="card-appear">
+          <h1 class="text-4xl lg:text-5xl font-extrabold text-brown-700 leading-tight">
+            AI-Driven <span class="text-brown-600">Healthcare</span> Support <span class="text-brown-700">✧</span>
+          </h1>
+          <p class="text-gray-700 mt-2 max-w-xl">
+            Your private digital wellness companion — understand symptoms, get quick AI answers, find local care and small daily tips to feel better.
+          </p>
+        </div>
+
+        <!-- wellness tip card -->
+        <div id="wellnessCard" class="mt-4 max-w-md bg-white/78 glass p-4 rounded-2xl shadow-md border border-white/40">
+          <div class="flex items-start gap-3">
+            <div class="flex-shrink-0">
+              <div class="w-12 h-12 rounded-xl bg-brown-600 text-white flex items-center justify-center text-xl">
+                <!-- lightbulb emoji replacement SVG -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M12 2a7 7 0 00-4 12.9V18a1 1 0 001 1h6a1 1 0 001-1v-3.1A7 7 0 0012 2z" />
+                </svg>
+              </div>
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="text-sm text-gray-500">Today's wellness thought</div>
+                  <div id="wellnessText" class="mt-2 text-gray-800 font-medium">Loading tip...</div>
+                </div>
+                <button id="refreshTip" class="text-sm text-brown-600 hover:underline ml-4">Refresh</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- mood tracker -->
+        <div class="max-w-md bg-white/70 glass p-4 rounded-2xl shadow-md border border-white/30">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm text-gray-500">How are you feeling right now?</div>
+              <div class="mt-1 text-sm text-gray-600">Choose one emoji — we'll send a little message back.</div>
+            </div>
+            <div class="text-2xl">🙂</div>
+          </div>
+
+          <div class="mt-3 flex items-center gap-3" id="moodRow">
+            <button class="mood-btn w-12 h-12 rounded-lg bg-white shadow flex items-center justify-center text-2xl transition hover:scale-105" data-mood="happy">😄</button>
+            <button class="mood-btn w-12 h-12 rounded-lg bg-white shadow flex items-center justify-center text-2xl transition hover:scale-105" data-mood="neutral">😐</button>
+            <button class="mood-btn w-12 h-12 rounded-lg bg-white shadow flex items-center justify-center text-2xl transition hover:scale-105" data-mood="sad">😢</button>
+            <button class="mood-btn w-12 h-12 rounded-lg bg-white shadow flex items-center justify-center text-2xl transition hover:scale-105" data-mood="angry">😤</button>
+            <div id="moodMessage" class="ml-3 text-sm text-gray-600 italic"></div>
+          </div>
+        </div>
+
+        <div class="text-sm text-gray-500 max-w-md">
+          Built for heathcare: short tips, fast answers, privacy-focused. Everything runs server-side for predictions and secure Gemini calls (if configured).
+        </div>
+      </div>
+
+      <!-- RIGHT: Form and results -->
+      <div class="lg:w-1/2 w-full">
+        <div class="glass backdrop-blur-xl bg-white/78 shadow-2xl rounded-3xl border border-white/30 p-6 lg:p-8">
+          <h2 class="text-2xl font-bold text-brown-700 mb-4 text-center">Let's Understand Your Health ꕤ</h2>
+
+          <!-- form -->
+          <form action="/predict" method="POST" class="space-y-4" id="mainForm">
+            <input name="name" placeholder="Your name" class="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-brown-300" required>
+
+            <textarea name="symptoms" placeholder="Describe symptoms in your own words..." class="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-brown-300" rows="4" required></textarea>
+
+            <input name="city" id="city" placeholder="City (optional)" class="w-full p-3 border rounded-xl shadow-sm focus:ring-2 focus:ring-brown-300">
+
+            <div class="flex items-center justify-between text-sm text-brown-600">
+              <button type="button" id="useLocation" class="hover:underline">📍 Use my location</button>
+              <div class="text-xs text-gray-500">We only use location to find care nearby.</div>
+            </div>
+
+            <input type="hidden" name="lat" id="main_lat">
+            <input type="hidden" name="lon" id="main_lon">
+
+            <div class="flex gap-3">
+              <button type="submit" class="flex-1 bg-brown-600 text-white py-3 rounded-xl font-semibold hover:bg-brown-700 transition transform hover:scale-[1.02] shadow">
+                <!-- Search icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="inline h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+                </svg>
+                Analyze My Symptoms
+              </button>
+
+              <button type="button" id="demoBtn" class="bg-white px-4 py-3 rounded-xl border shadow text-gray-700 hover:shadow-lg">Demo</button>
+            </div>
+          </form>
+
+          <!-- dynamic results area (Jinja-rendered when prediction exists) -->
+          {% if prediction %}
+          <div id="predictionBlock" class="mt-6 card-appear p-4 bg-white/78 rounded-2xl border border-brown-100 shadow-inner">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="text-lg font-bold text-brown-700 flex items-center gap-2">
+                  <!-- Stethoscope SVG -->
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-brown-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M6 2v6a6 6 0 0 0 12 0V2" />
+                    <path d="M12 22a4 4 0 0 0 4-4v-5" />
+                    <circle cx="18" cy="11" r="2" />
+                  </svg>
+                  Prediction
+                </h3>
+                <div class="text-sm text-gray-700 mt-1">{{ prediction }}</div>
+              </div>
+              <div class="text-xs text-gray-500">Results shown below</div>
+            </div>
+
+            <p class="text-gray-700 mt-3">{{ description }}</p>
+
+            {% if selfcare %}
+            <div class="mt-4">
+              <h4 class="text-sm font-semibold text-brown-600 flex items-center gap-1">
+                <!-- Lightbulb SVG -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 2a7 7 0 00-4 12.9V18a1 1 0 001 1h6a1 1 0 001-1v-3.1A7 7 0 0012 2z" />
+                </svg>
+                Self-care tips
+              </h4>
+              <ul class="list-disc ml-5 mt-2 text-gray-700">
+                {% for tip in selfcare %}
+                <li>{{ tip }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+
+            <!-- recommendations & share -->
+            <div class="mt-4 flex flex-col gap-2 items-stretch">
+              <div class="flex gap-2">
+                <button id="getRecs" data-disease="{{ prediction }}" class="flex-1 bg-ochre-400 hover:bg-ochre-500 text-white px-4 py-2 rounded-xl font-semibold flex items-center justify-center gap-2">
+                  <!-- Bell SVG -->
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m3 4a2 2 0 01-2-2h4a2 2 0 01-2 2z" />
+                  </svg>
+                  Smart Recommendations
+                </button>
+
+                <button id="shareBtn" class="bg-white border px-4 py-2 rounded-xl text-gray-700 hover:bg-gray-50 flex items-center gap-1">
+                  <!-- Share icon (simple) -->
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 12v8h8M4 12L20 4" />
+                  </svg>
+                  Share
+                </button>
+              </div>
+              <div id="recsContainer" class="hidden mt-2"></div>
+            </div>
+
+            <!-- in-page chat -->
+            <div class="mt-4 p-3 bg-white rounded-xl border">
+              <h4 class="font-semibold text-brown-700 flex items-center gap-2">
+                <!-- Chat Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-width="2" d="M7 8h10M7 12h6m-9 8l3-3h8a4 4 0 004-4V6a4 4 0 00-4-4H6a4 4 0 00-4 4v7a4 4 0 004 4h1z" />
+                </svg>
+                Ask about {{ prediction }}
+              </h4>
+
+              <form id="askForm" class="mt-3 flex gap-2">
+                <input type="hidden" id="chat_disease" value="{{ prediction }}">
+                <input type="text" id="chat_question" placeholder="Ask a question..." class="flex-1 p-2 border rounded-xl" required>
+                <button type="submit" class="bg-brown-600 text-white px-4 py-2 rounded-xl">Ask</button>
+              </form>
+
+              <div id="chatResponse" class="mt-3 text-gray-800 hidden">
+                <div class="font-semibold text-brown-600">AI:</div>
+                <div id="chatAnswer" class="mt-1 flex items-center gap-2">
+                  <span class="typing-dots text-brown-600"><span></span><span></span><span></span></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- FIND NEARBY -->
+            <div class="mt-4 flex gap-3 justify-center">
+              <form method="POST" action="/find" class="inline">
+                <input type="hidden" name="type" value="doctor">
+                <input type="hidden" name="disease" value="{{ prediction }}">
+                <input type="hidden" name="city" value="{{ city }}">
+                <input type="hidden" name="lat" class="find_lat" value="{{ lat }}">
+                <input type="hidden" name="lon" class="find_lon" value="{{ lon }}">
+                <button type="submit" class="bg-green-600 hover:bg-green-700 flex items-center gap-2 text-white px-5 py-2 rounded-xl font-semibold">
+                  <!-- Doctor SVG -->
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z" />
+                    <path stroke-width="2" d="M12 14l6.16-3.422A12.083 12.083 0 0112 21.5a12.083 12.083 0 01-6.16-10.922L12 14z" />
+                  </svg>
+                  Find Doctors
+                </button>
+              </form>
+
+              <form method="POST" action="/find" class="inline">
+                <input type="hidden" name="type" value="pharmacy">
+                <input type="hidden" name="disease" value="{{ prediction }}">
+                <input type="hidden" name="city" value="{{ city }}">
+                <input type="hidden" name="lat" class="find_lat" value="{{ lat }}">
+                <input type="hidden" name="lon" class="find_lon" value="{{ lon }}">
+                <button type="submit" class="bg-brown-600 hover:bg-brown-700 flex items-center gap-2 text-white px-5 py-2 rounded-xl font-semibold">
+                  <!-- Medicine SVG -->
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-width="2" d="M9 3h6v3H9zM7 6h10v14H7z" />
+                  </svg>
+                  Find Pharmacies
+                </button>
+              </form>
+            </div>
+
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- nearby results block (always shown when present) -->
+  {% if show_results and results %}
+  <div class="max-w-4xl mx-auto px-6 mt-8">
+    <div class="bg-white/78 glass p-6 rounded-3xl shadow-xl border border-white/30">
+      <h3 class="text-xl font-bold text-brown-700 mb-4 text-center">{{ success or "Nearby " ~ place_type|capitalize ~ "s" }}</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {% for r in results %}
+        <div class="p-4 bg-white rounded-xl shadow border hover:shadow-lg transition">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="font-semibold text-gray-800">{{ r.name }}</p>
+              <p class="text-sm text-gray-600">{{ r.address }}</p>
+            </div>
+            <a href="https://www.google.com/maps?q={{ r.lat }},{{ r.lon }}" target="_blank" class="text-sm text-blue-600 flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.553-.894L9 7m0 13l6 3 6-3M9 20V7m6 16V10m6 13V7m-6 3l6-3" />
+              </svg>
+              Open in Maps
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- floating quick chat button -->
+  <button id="quickChatBtn" class="fixed bottom-6 right-6 bg-brown-600 text-white p-4 rounded-full shadow-xl hover:scale-105 z-50" title="Quick health chat">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-width="2" d="M7 8h10M7 12h6m-9 8l3-3h8a4 4 0 004-4V6a4 4 0 00-4-4H6a4 4 0 00-4 4v7a4 4 0 004 4h1z" />
+    </svg>
+  </button>
+
+  <!-- quick chat modal -->
+  <div id="quickChatModal" class="fixed bottom-20 right-6 w-80 bg-white rounded-xl shadow-xl p-4 hidden z-50">
+    <div class="flex items-center justify-between mb-2">
+      <div class="font-semibold text-brown-600 flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-width="2" d="M7 8h10M7 12h6m-9 8l3-3h8a4 4 0 004-4V6a4 4 0 00-4-4H6a4 4 0 00-4 4v7a4 4 0 004 4h1z" />
+        </svg>
+        Quick Health Chat
+      </div>
+      <button id="closeQuickChat" class="text-gray-500">✕</button>
+    </div>
+
+    <input id="quickDisease" placeholder="Topic (optional)" class="w-full p-2 border rounded mb-2" />
+    <textarea id="quickQuestion" rows="3" placeholder="Ask a short question..." class="w-full p-2 border rounded mb-2"></textarea>
+
+    <div class="flex gap-2">
+      <button id="quickAskBtn" class="flex-1 bg-brown-600 text-white py-2 rounded">Ask</button>
+      <button id="quickClear" class="px-3 py-2 border rounded">Clear</button>
+    </div>
+    <div id="quickAnswer" class="mt-3 text-sm text-gray-700 hidden"></div>
+  </div>
+
+  <!-- hydration toast -->
+  <div id="hydrationToast" class="fixed top-6 right-6 bg-white/95 p-3 rounded shadow hidden z-50 transform transition-all">
+    <div class="flex items-center gap-3">
+      <div class="text-2xl">💧</div>
+      <div>
+        <div class="font-semibold">Hydration reminder</div>
+        <div id="hydrationText" class="text-sm text-gray-600">Time to take a sip!</div>
+      </div>
+      <button id="closeHydration" class="ml-2 text-gray-500">✕</button>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script>
+    // Defensive helper to check element existence
+    const $ = (id) => document.getElementById(id);
+
+    // --- Wellness tip ---
+    async function loadWellnessTip() {
+      try {
+        const res = await fetch('/wellness_tip');
+        if (!res.ok) throw new Error('Network response not OK');
+        const data = await res.json();
+        const node = $('wellnessText');
+        if (node) node.textContent = data.tip || "Be kind to yourself today.";
+      } catch (e) {
+        const node = $('wellnessText');
+        if (node) node.textContent = "Be kind to yourself today.";
+      }
+    }
+    const refreshBtn = $('refreshTip');
+    if (refreshBtn) refreshBtn.addEventListener('click', loadWellnessTip);
+    loadWellnessTip();
+
+    // --- Mood tracker ---
+    const moodBtns = document.querySelectorAll('.mood-btn') || [];
+    const moodMessage = $('moodMessage');
+    const moodMap = {
+      happy: "You're doing great — keep that energy! 🌸",
+      neutral: "A steady day is still a good day — small steps matter.",
+      sad: "It's okay to rest. Be gentle with yourself today.",
+      angry: "Take 3 deep breaths — anger takes energy, you've got this."
+    };
+    if (moodBtns.length && moodMessage) {
+      moodBtns.forEach(b => {
+        b.addEventListener('click', () => {
+          moodBtns.forEach(x => x.classList.remove('ring','ring-2','ring-brown-300'));
+          b.classList.add('ring','ring-2','ring-brown-300');
+          const m = b.getAttribute('data-mood');
+          moodMessage.textContent = moodMap[m] || "";
+        });
+      });
+    }
+
+    // --- Hydration reminder ---
+    let hydrationTimer = null;
+    function startHydrationTimer(minutes = 45) {
+      if (hydrationTimer) clearTimeout(hydrationTimer);
+      hydrationTimer = setTimeout(() => {
+        const toast = $('hydrationToast');
+        const text = $('hydrationText');
+        if (text) text.textContent = "Take a sip of water — small wins!";
+        if (toast) {
+          toast.classList.remove('hidden');
+          setTimeout(() => toast.classList.add('hidden'), 12000);
+        }
+      }, minutes * 60 * 1000);
+    }
+    const closeHydration = $('closeHydration');
+    if (closeHydration) closeHydration.addEventListener('click', () => {
+      const toast = $('hydrationToast');
+      if (toast) toast.classList.add('hidden');
+      startHydrationTimer(45);
+    });
+    // start on load
+    startHydrationTimer(45);
+
+    // --- Use location ---
+    const useLocation = $('useLocation');
+    if (useLocation) {
+      useLocation.addEventListener('click', function () {
+        if (!navigator.geolocation) return alert("Geolocation not supported.");
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const mainLat = $('main_lat');
+          const mainLon = $('main_lon');
+          if (mainLat) mainLat.value = lat;
+          if (mainLon) mainLon.value = lon;
+          // set any find form lat/lon fields (class-based)
+          document.querySelectorAll('input.find_lat').forEach(el => el.value = lat);
+          document.querySelectorAll('input.find_lon').forEach(el => el.value = lon);
+          alert("📍 Location set successfully!");
+        }, function (err) {
+          alert("Location error: " + err.message);
+        });
+      });
+    }
+
+    // --- Recommend button (calls /recommend) ---
+    const getRecsBtn = $('getRecs');
+    if (getRecsBtn) {
+      getRecsBtn.addEventListener('click', async function () {
+        const btn = this;
+        const disease = btn.getAttribute('data-disease') || '';
+        btn.disabled = true;
+        const oldText = btn.innerHTML;
+        btn.innerHTML = '⏳ Fetching...';
+        try {
+          const form = new URLSearchParams();
+          form.append('disease', disease);
+          const res = await fetch('/recommend', { method: 'POST', body: form });
+          if (!res.ok) throw new Error('recommend failed');
+          const data = await res.json();
+          const recs = data.recommendations || [];
+          const container = $('recsContainer');
+          if (container) {
+            if (!recs.length) container.innerHTML = '<div class="p-2 text-sm text-gray-600">No recommendations available right now.</div>';
+            else container.innerHTML = recs.map(r => `<div class="mt-2 p-3 bg-white rounded shadow-sm text-sm">${r}</div>`).join('');
+            container.classList.remove('hidden');
+            container.scrollIntoView({ behavior: 'smooth' });
+          }
+        } catch (err) {
+          alert('Could not fetch recommendations right now.');
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = oldText;
+        }
+      });
+    }
+
+    // --- in-page /ask chat handler ---
+    const askForm = $('askForm');
+    if (askForm) {
+      askForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const questionInput = $('chat_question');
+        const diseaseInput = $('chat_disease');
+        if (!questionInput || !diseaseInput) return;
+        const question = questionInput.value.trim();
+        const disease = diseaseInput.value.trim();
+        if (!question) return;
+        const chatResponse = $('chatResponse');
+        const chatAnswer = $('chatAnswer');
+        if (chatAnswer) chatAnswer.innerHTML = '<span class="typing-dots text-brown-600"><span></span><span></span><span></span></span>';
+        if (chatResponse) chatResponse.classList.remove('hidden');
+        try {
+          const res = await fetch('/ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ disease, question })
+          });
+          const data = await res.json();
+          if (chatAnswer) chatAnswer.textContent = data.answer || 'Sorry, I could not answer that.';
+          if (chatResponse) chatResponse.classList.add('opacity-100');
+          if (chatResponse) chatResponse.scrollIntoView({ behavior: 'smooth' });
+        } catch (err) {
+          if (chatAnswer) chatAnswer.textContent = 'Error contacting AI assistant.';
+        }
+      });
+    }
+
+    // --- Quick chat UI ---
+    const quickBtn = $('quickChatBtn');
+    const quickModal = $('quickChatModal');
+    const closeQuick = $('closeQuickChat');
+    if (quickBtn && quickModal) quickBtn.addEventListener('click', () => quickModal.classList.toggle('hidden'));
+    if (closeQuick && quickModal) closeQuick.addEventListener('click', () => quickModal.classList.add('hidden'));
+    const quickClear = $('quickClear');
+    if (quickClear) quickClear.addEventListener('click', () => {
+      const q = $('quickQuestion'); const d = $('quickDisease'); const out = $('quickAnswer');
+      if (q) q.value = ''; if (d) d.value = ''; if (out) out.classList.add('hidden');
+    });
+    const quickAskBtn = $('quickAskBtn');
+    if (quickAskBtn) {
+      quickAskBtn.addEventListener('click', async () => {
+        const q = ( $('quickQuestion') && $('quickQuestion').value.trim() ) || '';
+        let d = ( $('quickDisease') && $('quickDisease').value.trim() ) || 'General';
+        const out = $('quickAnswer');
+        if (!q) return alert('Please type a short question.');
+        if (out) { out.classList.add('hidden'); out.textContent = 'Thinking...'; }
+        try {
+          const form = new URLSearchParams();
+          form.append('disease', d || 'General');
+          form.append('question', q);
+          const res = await fetch('/ask', { method: 'POST', body: form });
+          const data = await res.json();
+          if (out) { out.textContent = data.answer || "Couldn't find an answer right now."; out.classList.remove('hidden'); }
+        } catch (e) {
+          if (out) { out.textContent = 'Error contacting the server.'; out.classList.remove('hidden'); }
+        }
+      });
+    }
+
+    // demo button (fills sample text)
+    const demoBtn = $('demoBtn');
+    if (demoBtn) demoBtn.addEventListener('click', () => {
+      const form = $('mainForm');
+      if (!form) return;
+      const nameEl = form.querySelector('input[name="name"]');
+      const symptomsEl = form.querySelector('textarea[name="symptoms"]');
+      const cityEl = form.querySelector('input[name="city"]');
+      if (nameEl) nameEl.value = 'Yash Soni';
+      if (symptomsEl) symptomsEl.value = 'I have coughing and headache';
+      if (cityEl) cityEl.value = 'Mumbai';
+    });
+
+    // Accessibility: close quick chat with Esc
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const modal = $('quickChatModal');
+        if (modal) modal.classList.add('hidden');
+      }
+    });
+
+    // On page load: ensure hidden find lat/lon sync from main hidden fields (if present)
+    window.addEventListener('load', () => {
+      const mainLat = $('main_lat')?.value || '';
+      const mainLon = $('main_lon')?.value || '';
+      if (mainLat && mainLon) {
+        document.querySelectorAll('input.find_lat').forEach(el => { if (!el.value) el.value = mainLat; });
+        document.querySelectorAll('input.find_lon').forEach(el => { if (!el.value) el.value = mainLon; });
+      }
+    });
+
+  </script>
+
+</body>
+</html>
